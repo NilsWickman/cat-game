@@ -35,12 +35,18 @@ export interface Pose {
   mouth: number;
   /** Fine body tremble while purring. */
   shake: number;
+  /** Up on the hind legs with front paws forward (scratching a post). */
+  rear: number;
+  /** Sink down so only the ears show (peekaboo in the box). */
+  duck: number;
+  /** Lying with the front paws tucked under the chest: a proper loaf. */
+  tuck: number;
 }
 
 export const neutralPose = (): Pose => ({
   sit: 0, lie: 0, crouch: 0, wiggle: 0, walk: 0, jump: 0, eyesClosed: 0, earsBack: 0, swat: 0, eat: 0,
   tailUp: 0.6, tailSpeed: 0.8, tailAmp: 0.25, headYaw: 0, headPitch: 0, headTilt: 0,
-  roll: 0, rollSide: 1, paddle: 0, knead: 0, stretch: 0, wrap: 0, mouth: 0, shake: 0,
+  roll: 0, rollSide: 1, paddle: 0, knead: 0, stretch: 0, wrap: 0, mouth: 0, shake: 0, rear: 0, duck: 0, tuck: 0,
 });
 
 const PINK = "#f2a7b2";
@@ -453,11 +459,11 @@ export class CatModel {
     const bob = Math.abs(Math.sin(ph)) * 0.035 * p.walk;
     const onSide = Math.sin(Math.min(1, p.roll) * Math.PI);
     this.roller.position.y =
-      0.62 - 0.07 * p.sit - 0.32 * p.lie - 0.15 * p.crouch + bob + 0.05 * p.jump - 0.12 * p.stretch + 0.04 * onSide;
+      0.62 - 0.07 * p.sit - 0.32 * p.lie - 0.15 * p.crouch + bob + 0.05 * p.jump - 0.12 * p.stretch + 0.04 * onSide + 0.03 * p.rear - 0.3 * p.duck;
     this.roller.rotation.z = p.roll * Math.PI * p.rollSide + Math.sin(t * 3.2) * 0.14 * p.paddle;
     body.position.x = Math.sin(t * 150) * 0.004 * p.shake;
     body.position.z = -0.12 * p.sit;
-    body.rotation.x = -0.8 * p.sit + 0.12 * p.eat - 0.25 * p.jump + 0.3 * p.stretch;
+    body.rotation.x = -0.8 * p.sit + 0.12 * p.eat - 0.25 * p.jump + 0.3 * p.stretch - 1.2 * p.rear;
     body.rotation.z = Math.sin(t * 22) * 0.07 * p.wiggle;
     const breathe = Math.sin(t * (p.lie > 0.5 ? 1.7 : 2.8)) * 0.014;
     body.scale.set(1 + breathe, 1 + breathe, 1);
@@ -468,13 +474,14 @@ export class CatModel {
       let rx = Math.sin(phase) * 0.6 * p.walk;
       if (front) {
         // Counter the body pitch so front legs stay vertical, and drop the hip so paws reach the floor
-        rx += 0.8 * p.sit - 1.45 * p.lie - 0.9 * p.jump + 0.12 * p.eat - 1.1 * p.stretch;
+        rx += 0.8 * p.sit - 1.45 * p.lie * (1 - p.tuck) - 0.9 * p.jump + 0.12 * p.eat - 1.1 * p.stretch - 0.2 * p.rear;
         if (i === 1) rx -= p.swat * 2.1;
         rx -= Math.max(0, Math.sin(t * 6 + i * Math.PI)) * 0.55 * p.knead;
         leg.position.y = LEG_HIPS[i][1] - 0.2 * p.sit;
       } else {
         // Sitting: hind legs angle forward-down so the paws rest beside the front paws
-        rx += -0.25 * p.sit - 1.45 * p.lie + 0.9 * p.jump - 0.3 * p.stretch;
+        // Rearing: hind legs angle forward-down under the upright body
+        rx += -0.25 * p.sit - 1.45 * p.lie + 0.9 * p.jump - 0.3 * p.stretch + 0.27 * p.rear;
       }
       // Flopped over: legs stick out from the body, and bicycle when playing
       const flop = Math.min(1, p.roll * 2);
@@ -485,7 +492,7 @@ export class CatModel {
 
     const head = this.head;
     head.rotation.y = p.headYaw;
-    head.rotation.x = p.headPitch + 0.75 * p.sit + 0.85 * p.eat + 0.25 * p.jump - 0.25 * p.stretch;
+    head.rotation.x = p.headPitch + 0.75 * p.sit + 0.85 * p.eat + 0.25 * p.jump - 0.25 * p.stretch + 1.0 * p.rear + 0.25 * p.duck;
     // Upside down the head turns partly back toward upright, which reads as looking at you
     head.rotation.z = p.headTilt - p.roll * p.rollSide * 1.2;
     this.mouth.visible = p.mouth > 0.04;

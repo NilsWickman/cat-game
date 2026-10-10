@@ -332,6 +332,33 @@ export class Sfx {
     f.frequency.exponentialRampToValueAtTime(2200, t + 0.2);
   }
 
+  /** Claws on sisal or fabric: a couple of short scratchy bursts. */
+  scratch() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const f = this.noiseBurst(t + i * 0.045, 1800 + Math.random() * 1400, 0.9, 0.16, 0.05);
+      f.frequency.exponentialRampToValueAtTime(900, t + i * 0.045 + 0.05);
+    }
+  }
+
+  /** Rising whoop for an item flying back to its place. */
+  whoop() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    const g = ctx.createGain();
+    osc.frequency.setValueAtTime(300, t);
+    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.35);
+    this.env(g, t, 0.12, 0.05, 0.4);
+    osc.connect(g).connect(this.master);
+    osc.start(t);
+    osc.stop(t + 0.5);
+  }
+
   shutter() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;

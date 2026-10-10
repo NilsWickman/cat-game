@@ -126,7 +126,24 @@ function onCrash(item: Knockable) {
   sfx.crash();
   vibrate(35);
   floatAt(p.setY(0.6), `KRASCH! +${formatNumber(n)} ❤`, "big crash");
+  if (!putBackHinted && state.stats.knocks <= 5) {
+    putBackHinted = true;
+    setTimeout(() => hud.toast("Tryck på saken på golvet för att ställa tillbaka den 😼"), 1200);
+  }
 }
+
+/** Put back on the table? The keenest cat (or the one already up there) knocks it right down again. */
+function onReturned(item: Knockable) {
+  const holder = world.reservations.get(item.surface);
+  const cats = [...world.cats].sort(
+    (a, b) =>
+      Number(a.asleep) - Number(b.asleep) ||
+      a.pos.distanceTo(item.home) - b.pos.distanceTo(item.home) - (a.data.playful - b.data.playful),
+  );
+  (holder ?? cats[0])?.knockNow(item);
+}
+
+let putBackHinted = false;
 
 // ---------- HUD ----------
 
@@ -278,6 +295,15 @@ const input = new Input(canvas, rig, laser, {
     cat.tap();
   },
   flick(body, impulse) {
+    const item = physics.items.find((i) => i.body === body);
+    if (item && item.state === "returning") return;
+    if (item && item.state !== "resting") {
+      if (physics.putBack(item)) {
+        sfx.whoop();
+        fx.emit("star", item.mesh.position.clone(), 4);
+      }
+      return;
+    }
     physics.push(body, impulse);
     sfx.whoosh();
   },
@@ -392,7 +418,7 @@ renderer.setAnimationLoop((now) => {
   world.night = lighting.day < 0.35;
   room.update(clock, hours);
 
-  physics.update(dt, onCrash);
+  physics.update(dt, onCrash, onReturned);
   laser.update(dt, clock);
   let purr = 0;
   for (const cat of world.cats) {

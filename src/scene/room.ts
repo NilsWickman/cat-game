@@ -73,6 +73,8 @@ export class Room {
   private clockHour = new THREE.Group();
   private clockMinute = new THREE.Group();
   private pompom = new THREE.Group();
+  private pompomAngle = 0;
+  private pompomVel = 0;
   private yarnMesh: THREE.Group;
 
   constructor(private physics: Physics) {
@@ -338,16 +340,16 @@ export class Room {
 
   private buildFurniture() {
     // Cardboard box
-    const bx = this.furn("box", 2.1, -3.0, 0.75);
+    const bx = this.furn("box", 2.1, -3.0, 0.85);
     const card = "#c89b5e";
     bx.add(
-      at(box(1.0, 0.04, 0.8, "#a87b45"), 0, 0.02, 0),
-      at(box(1.0, 0.5, 0.04, card), 0, 0.25, 0.38),
-      at(box(1.0, 0.5, 0.04, card), 0, 0.25, -0.38),
-      at(box(0.04, 0.5, 0.8, card), 0.48, 0.25, 0),
-      at(box(0.04, 0.5, 0.8, card), -0.48, 0.25, 0),
-      at(box(1.0, 0.02, 0.32, "#d4a96c"), 0, 0.56, 0.5).rotateX(0.9),
-      at(box(1.0, 0.02, 0.32, "#d4a96c"), 0, 0.56, -0.5).rotateX(-0.9),
+      at(box(1.25, 0.04, 1.05, "#a87b45"), 0, 0.02, 0),
+      at(box(1.25, 0.45, 0.04, card), 0, 0.225, 0.505),
+      at(box(1.25, 0.45, 0.04, card), 0, 0.225, -0.505),
+      at(box(0.04, 0.45, 1.05, card), 0.605, 0.225, 0),
+      at(box(0.04, 0.45, 1.05, card), -0.605, 0.225, 0),
+      at(box(1.25, 0.02, 0.34, "#d4a96c"), 0, 0.5, 0.63).rotateX(0.9),
+      at(box(1.25, 0.02, 0.34, "#d4a96c"), 0, 0.5, -0.63).rotateX(-0.9),
     );
 
     // Yarn ball (physics body is managed by setOwned)
@@ -470,7 +472,7 @@ export class Room {
     for (const id of ids) this.owned.add(id);
     for (const [id, grp] of this.furniture) grp.visible = this.owned.has(id);
     const has = (id: FurnitureId) => this.owned.has(id);
-    this.physics.setStatic("box", has("box"), v(2.1, 0.25, -3.0), v(0.5, 0.25, 0.4));
+    this.physics.setStatic("box", has("box"), v(2.1, 0.225, -3.0), v(0.625, 0.225, 0.525));
     this.physics.setStatic("shelf", has("shelf"), v(-2.0, 1.56, -3.55), v(1.0, 0.04, 0.45));
     this.physics.setStatic("aquarium", has("aquarium"), v(-3.55, 0.875, 1.0), v(0.35, 0.875, 0.8));
     this.physics.setStatic("tree", has("tree"), v(2.8, 0.06, 0.1), v(0.65, 0.06, 0.6));
@@ -496,6 +498,17 @@ export class Room {
     return v(0.5, 0, 1);
   }
 
+  /** Where the pom-pom hangs, for a cat on the low platform to bat at. */
+  readonly pompomPos = v(2.05, 0.6, 0.35);
+  /** Tall post of the cat tree, for scratching (the cat stands on the base slab). */
+  readonly scratchPost = v(3.1, 0, -0.2);
+  readonly scratchStand = v(2.84, 0.12, 0.06);
+  readonly rugCenter = v(0.3, 0, 0.7);
+
+  batPompom(strength: number) {
+    this.pompomVel += strength;
+  }
+
   update(t: number, hours: number) {
     for (const f of this.fish) {
       const a = t * f.speed + f.phase;
@@ -504,6 +517,13 @@ export class Room {
     }
     this.clockHour.rotation.z = -((hours % 12) / 12) * Math.PI * 2;
     this.clockMinute.rotation.z = -(hours % 1) * Math.PI * 2;
-    this.pompom.rotation.z = Math.sin(t * 1.3) * 0.15;
+    // Damped pendulum, with a lazy idle sway
+    const dt = Math.min(0.05, t - this.lastT);
+    this.lastT = t;
+    this.pompomVel += (-18 * this.pompomAngle - 1.2 * this.pompomVel) * dt;
+    this.pompomAngle += this.pompomVel * dt;
+    this.pompom.rotation.z = this.pompomAngle + Math.sin(t * 1.3) * 0.06;
   }
+
+  private lastT = 0;
 }

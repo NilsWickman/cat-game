@@ -49,6 +49,7 @@ export class Cat {
   private petTimer = 0;
   private mouthLeft = 0;
   private taps = 0;
+  private pendingKnock: Knockable | null = null;
   private lookAt: THREE.Vector3 | null = null;
   private seenEpoch = -1;
   private chaseOk = false;
@@ -79,7 +80,7 @@ export class Cat {
   /** A quick tap (not a stroke): flop over for a belly rub. Tapping again while it's rolling springs the belly trap. */
   tap() {
     if (this.jumping) return;
-    if (this.planName === "roll") {
+    if (this.planName === "roll" || this.planName === "box") {
       this.taps++;
       return;
     }
@@ -89,6 +90,11 @@ export class Cat {
       return;
     }
     this.start("roll", this.rollPlan(true));
+  }
+
+  /** Someone put this item back. It must go down again, right now. */
+  knockNow(item: Knockable) {
+    this.pendingKnock = item;
   }
 
   say(kind: MeowKind = "meow") {
@@ -108,6 +114,14 @@ export class Cat {
     this.t = t;
     this.petTimer -= dt;
 
+    if (!this.jumping && this.pendingKnock && this.planName !== "pet" && this.planName !== "roll") {
+      const item = this.pendingKnock;
+      this.pendingKnock = null;
+      if (item.state === "resting") {
+        this.w.fx.emit("alert", this.model.headWorld(this.tmp).add(v(0, 0.25, 0)));
+        this.start("knock", this.knockPlan(this.w.room.surfaces[item.surface], item));
+      }
+    }
     if (!this.jumping) {
       // Petting interrupts anything except a belly-up roll, which handles belly rubs itself
       if (this.petTimer > 0 && this.planName !== "pet" && this.planName !== "roll") this.start("pet", this.petPlan());
@@ -236,15 +250,28 @@ export class Cat {
     return Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
   }
 
-  private *hold(seconds: number, each: (t: number) => void): Plan {
+  private *hold(seconds: number, each: (t: number) => void, until?: () => boolean): Plan {
     let t = 0;
-    while ((t += this.dt) < seconds) {
+    while ((t += this.dt) < seconds && !until?.()) {
       each(t);
       yield;
     }
   }
 
-  private *jumpTo(to: THREE.Vector3, low = false): Plan {
+  /** Turn around in place, like a cat getting comfy. */
+  private *spin(turns: number, seconds: number): Plan {
+    const start = this.heading;
+    let t = 0;
+    while ((t += this.dt) < seconds) {
+      this.heading = start + turns * Math.PI * 2 * (t / seconds);
+      this.target.walk = 0.6;
+      this.speedNow = 0.5;
+      this.target.tailUp = 0.85;
+      yield;
+    }
+  }
+
+  private *jumpTo(to: THREE.Vector3, low = false, arcOverride?: number): Plan {
     this.jumping = true;
     try {
       yield* this.face(this.headingTo(to), 0.5);
@@ -256,7 +283,7 @@ export class Cat {
       const dy = to.y - from.y;
       const dist = Math.hypot(to.x - from.x, to.z - from.z);
       const dur = low ? 0.32 : 0.42 + 0.1 * Math.abs(dy) + 0.06 * dist;
-      const arc = low ? 0.35 : 0.45 + Math.max(0, dy) * 0.3;
+      const arc = arcOverride ?? (low ? 0.35 : 0.45 + Math.max(0, dy) * 0.3);
       if (!low) this.w.sfx.whoosh();
       let s = 0;
       while (s < 1) {
@@ -341,6 +368,7 @@ export class Cat {
       ["sleep", 0.5 + d.lazy * 2.5 + (w.night ? 3 : 0), () => this.sleepPlan(false)],
       ["roll", 0.6 + d.playful, () => this.rugRollPlan()],
       ["zoomies", (0.2 + d.playful * 0.6) * (w.night ? 1.8 : 1), () => this.zoomiesPlan()],
+      ["scratch", 1.1 + d.playful * 0.5, () => this.scratchPlan()],
     ];
     if (this.free("table") && w.physics.resting("table").length) {
       options.push(["knock", (0.6 + d.playful * 1.6) * chaos, () => this.knockPlan(w.room.surfaces.table)]);
@@ -426,6 +454,17 @@ export class Cat {
         } else {
           yield* this.goTo(room.randomFloorPoint());
         }
+      }
+      if (!here) {
+        // Getting comfy: a turn on the spot and some kneading
+        yield* this.spin(Math.random() < 0.5 ? 1 : -1, 1.2);
+        yield* this.hold(rand(1, 1.8), () => {
+          this.target.knead = 1;
+          this.target.crouch = 0.3;
+          this.target.eyesClosed = 0.5;
+          this.target.tailUp = 0.8;
+          this.purr = 0.15;
+        });
       }
       this.asleep = true;
       let nextZ = 1;
@@ -552,33 +591,184 @@ export class Cat {
     });
   }
 
+  /** Hop in over the edge, turn around, then loaf, look around or play peekaboo. Tapping makes it duck. */
   private *boxPlan(): Plan {
     if (!this.reserve("box")) return;
+    const spot = this.w.room.spots.box;
     try {
-      yield* this.settleAt(this.w.room.spots.box);
-      yield* this.hold(rand(8, 16), () => {
-        this.target.lie = 1;
-        this.target.eyesClosed = 0.55;
-        this.target.tailAmp = 0.05;
-        this.lookAt = this.w.camera.position;
-      });
+      // Sit toward the back of the box, facing you, so the head stays inside the walls
+      const cam = this.w.camera.position;
+      const toCam = v(cam.x - spot.pos.x, 0, cam.z - spot.pos.z).normalize();
+      const inside = spot.pos.clone().addScaledVector(toCam, -0.25);
+      yield* this.goTo(spot.approach);
+      yield* this.jumpTo(inside, false, 0.85);
+      yield* this.spin(Math.random() < 0.5 ? 1 : -1, 0.9);
+      yield* this.face(Math.atan2(toCam.x, toCam.z));
+      this.taps = 0;
+      let left = rand(10, 18);
+      const poked = () => this.taps > 0;
+      while (left > 0) {
+        const mood = poked() ? "peek" : (["loaf", "loaf", "sit", "peek"] as const)[Math.floor(Math.random() * 4)];
+        this.taps = 0;
+        if (mood === "peek") {
+          left -= 3.2;
+          // Only the ears, then the eyes over the rim, then pop!
+          yield* this.hold(rand(0.8, 1.3), (t) => {
+            this.target.lie = 1;
+            this.target.tuck = 1;
+            this.target.duck = 1.4;
+            this.target.earsBack = Math.sin(t * 9) > 0.7 ? 0.4 : 0;
+          });
+          yield* this.hold(rand(0.7, 1.1), (t) => {
+            this.target.lie = 1;
+            this.target.tuck = 1;
+            this.target.duck = 0.7;
+            this.target.headYaw = Math.sin(t * 3) * 0.5;
+          });
+          this.model.boop(-4);
+          if (Math.random() < 0.4) this.say("mrrp");
+          yield* this.hold(1.4, (t) => {
+            this.target.sit = 1;
+            this.target.headTilt = Math.sin(t * 2) * 0.3;
+            this.lookAt = this.w.camera.position;
+          }, poked);
+        } else if (mood === "loaf") {
+          const d = rand(3, 5);
+          left -= d;
+          yield* this.hold(d, (t) => {
+            this.target.lie = 1;
+            this.target.tuck = 1;
+            // Slow blinks: the cat way of saying "I trust you"
+            this.target.eyesClosed = Math.sin(t * 1.3) > 0.55 ? 1 : 0.45;
+            this.target.tailAmp = 0.05;
+            this.lookAt = this.w.camera.position;
+          }, poked);
+        } else {
+          const d = rand(3, 5);
+          left -= d;
+          let glance = this.w.room.randomFloorPoint();
+          yield* this.hold(d, (t) => {
+            this.target.sit = 1;
+            if (Math.floor(t / 1.5) !== Math.floor((t - this.dt) / 1.5)) glance = this.w.room.randomFloorPoint().setY(rand(0, 1.5));
+            this.lookAt = glance;
+          }, poked);
+        }
+      }
+      yield* this.jumpTo(spot.approach, false, 0.85);
     } finally {
       this.release("box");
     }
   }
 
-  private *knockPlan(surface: Surface): Plan {
+  /** Claws out: the cat tree post, the rug, or the cushion. */
+  private *scratchPlan(): Plan {
+    const room = this.w.room;
+    const options: (() => Plan)[] = [() => this.scratchFloor(room.rugCenter.clone().add(v(rand(-1, 1), 0, rand(-1, 1))), ["#d36b5d", "#f2d49b", "#7fb7a4"])];
+    if (room.owned.has("tree") && this.free("tree")) options.push(() => this.scratchPost(), () => this.scratchPost());
+    if (room.owned.has("cushion") && this.free("cushion")) options.push(() => this.scratchCushion());
+    yield* options[Math.floor(Math.random() * options.length)]();
+  }
+
+  private *scratchPost(): Plan {
+    if (!this.reserve("tree")) return;
+    try {
+      const room = this.w.room;
+      const stand = room.scratchStand;
+      yield* this.goTo(v(stand.x - 0.7, 0, stand.z + 0.7));
+      yield* this.jumpTo(stand, true);
+      yield* this.face(this.headingTo(room.scratchPost));
+      yield* this.scratching(rand(2.5, 4), () => ({ rear: 1 }), 0.8, ["#e3cf9f", "#c9ad74"]);
+      yield* this.hold(0.5, () => (this.target.sit = 0.6));
+      yield* this.jumpDown();
+    } finally {
+      this.release("tree");
+    }
+  }
+
+  private *scratchFloor(at: THREE.Vector3, colors: string[]): Plan {
+    yield* this.goTo(at);
+    yield* this.scratching(rand(2, 3.5), () => ({ stretch: 1 }), 0.06, colors);
+  }
+
+  private *scratchCushion(): Plan {
+    if (!this.reserve("cushion")) return;
+    try {
+      const spot = this.w.room.spots.cushion;
+      yield* this.goTo(spot.approach);
+      yield* this.jumpTo(spot.pos, true);
+      yield* this.scratching(rand(2, 3.5), () => ({ stretch: 1 }), 0.28, ["#f2c14e", "#e09a3b"]);
+      yield* this.jumpDown();
+    } finally {
+      this.release("cushion");
+    }
+  }
+
+  /** Alternating paws with fluff and claw sounds; `pawHeight` is where the fluff flies off. */
+  private *scratching(seconds: number, pose: () => Partial<Pose>, pawHeight: number, colors: string[]): Plan {
+    let next = 0.4;
+    yield* this.hold(seconds, (t) => {
+      Object.assign(this.target, pose());
+      this.target.knead = 1;
+      this.target.earsBack = 0.25;
+      this.target.tailUp = 0.9;
+      this.target.eyesClosed = 0.3;
+      if (t > next) {
+        next = t + 0.3;
+        this.w.sfx.scratch();
+        const paw = v(Math.sin(this.heading) * 0.55, 0, Math.cos(this.heading) * 0.55).add(this.pos).setY(this.pos.y + pawHeight);
+        this.w.fx.emit("dust", paw, 2, colors[Math.floor(Math.random() * colors.length)]);
+      }
+    });
+  }
+
+  /** Bat the dangling pom-pom from the floor. */
+  private *pompomPlay(): Plan {
+    const room = this.w.room;
+    const pom = room.pompomPos;
+    yield* this.goTo(v(pom.x - 0.6, 0, pom.z));
+    yield* this.face(this.headingTo(pom));
+    for (let n = Math.floor(rand(2, 5)); n > 0; n--) {
+      yield* this.hold(rand(0.3, 0.8), () => {
+        this.target.sit = 1;
+        this.target.tailAmp = 0.6;
+        this.target.tailSpeed = 2.5;
+        this.lookAt = pom;
+      });
+      let hit = false;
+      yield* this.hold(0.3, (t) => {
+        this.target.sit = 0.7;
+        this.target.swat = t < 0.18 ? 1 : 0;
+        this.lookAt = pom;
+        if (!hit && t > 0.12) {
+          hit = true;
+          room.batPompom(rand(2, 3.5) * (Math.random() < 0.5 ? 1 : -1));
+        }
+      });
+    }
+  }
+
+  /** With a `target` the cat is eager: it noticed you putting it back and rushes over. */
+  private *knockPlan(surface: Surface, target?: Knockable): Plan {
     const items = this.w.physics.resting(surface.id);
-    const item: Knockable | undefined = items[Math.floor(Math.random() * items.length)];
+    const item: Knockable | undefined = target ?? items[Math.floor(Math.random() * items.length)];
     if (!item || !this.reserve(surface.id)) return;
     try {
-      yield* this.goTo(surface.approach);
-      yield* this.jumpTo(surface.top);
+      if (target) {
+        yield* this.hold(0.45, () => {
+          this.target.crouch = 0.6;
+          this.target.wiggle = 1;
+          this.lookAt = item.mesh.position;
+        });
+      }
+      if (Math.abs(this.level - surface.top.y) > 0.05) {
+        yield* this.goTo(surface.approach, target ? 3.0 : 1.1);
+        yield* this.jumpTo(surface.top);
+      }
       const itemPos = item.mesh.position;
       yield* this.walkTo(surface.stand(itemPos), 0.6);
       yield* this.face(this.headingTo(itemPos));
       // The classic: look you in the eye first
-      yield* this.hold(rand(0.8, 1.5), () => {
+      yield* this.hold(target ? rand(0.5, 0.9) : rand(0.8, 1.5), () => {
         this.target.sit = 0.7;
         this.target.tailAmp = 0.5;
         this.target.tailSpeed = 1.6;
@@ -651,6 +841,8 @@ export class Cat {
     if (!this.reserve("tree")) return;
     const spots = this.w.room.spots;
     try {
+      if (Math.random() < 0.45) yield* this.scratchPost();
+      this.reserve("tree");
       yield* this.goTo(spots.treeLow.approach);
       yield* this.jumpTo(spots.treeLow.pos);
       yield* this.hold(0.5, () => (this.target.sit = 0.5));
@@ -664,6 +856,7 @@ export class Cat {
         this.lookAt = this.w.camera.position;
       });
       yield* this.jumpDown();
+      if (Math.random() < 0.5) yield* this.pompomPlay();
     } finally {
       this.release("tree");
     }

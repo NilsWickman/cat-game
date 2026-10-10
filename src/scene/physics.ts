@@ -9,10 +9,13 @@ export interface Knockable {
   surface: SurfaceId;
   home: THREE.Vector3;
   halfHeight: number;
-  state: "resting" | "falling" | "fallen";
+  state: "resting" | "falling" | "fallen" | "returning";
   timer: number;
   /** True while the item belongs to furniture the player owns. */
   enabled: boolean;
+  /** Where a put-back flight started. */
+  from: THREE.Vector3;
+  fromQuat: THREE.Quaternion;
 }
 
 export interface Yarn {
@@ -21,8 +24,13 @@ export interface Yarn {
   radius: number;
 }
 
-const RESPAWN_AFTER = 6;
+/** Long enough for the player to put things back themselves. */
+const RESPAWN_AFTER = 20;
+const RETURN_TIME = 0.6;
 const HALF = 4;
+const _v = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _qId = new THREE.Quaternion();
 
 export class Physics {
   readonly world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0) });
@@ -69,7 +77,7 @@ export class Physics {
   addItem(mesh: THREE.Object3D, shape: CANNON.Shape, halfHeight: number, home: THREE.Vector3, surface: SurfaceId): Knockable {
     const body = new CANNON.Body({ mass: 0.3, shape, linearDamping: 0.05, angularDamping: 0.2 });
     body.sleepSpeedLimit = 0.15;
-    const item: Knockable = { mesh, body, surface, home: home.clone(), halfHeight, state: "resting", timer: 0, enabled: true };
+    const item: Knockable = { mesh, body, surface, home: home.clone(), halfHeight, state: "resting", timer: 0, enabled: true, from: new THREE.Vector3(), fromQuat: new THREE.Quaternion() };
     this.reset(item);
     this.world.addBody(body);
     this.items.push(item);
@@ -103,6 +111,17 @@ export class Physics {
     body.applyImpulse(new CANNON.Vec3(impulse.x, impulse.y, impulse.z));
   }
 
+  /** Fly an item back to its spot (player tidying up). Returns false if it's already in place. */
+  putBack(item: Knockable): boolean {
+    if (item.state === "resting" || item.state === "returning") return false;
+    item.state = "returning";
+    item.timer = 0;
+    item.from.copy(item.mesh.position);
+    item.fromQuat.copy(item.mesh.quaternion);
+    item.mesh.scale.setScalar(1);
+    return true;
+  }
+
   resting(surface: SurfaceId): Knockable[] {
     return this.items.filter((i) => i.enabled && i.surface === surface && i.state === "resting");
   }
@@ -118,12 +137,30 @@ export class Physics {
     item.timer = 0;
   }
 
-  update(dt: number, onCrash: (item: Knockable) => void) {
+  update(dt: number, onCrash: (item: Knockable) => void, onReturned: (item: Knockable) => void) {
     this.world.fixedStep(1 / 60, dt);
 
     for (const item of this.items) {
       if (!item.enabled) continue;
       const b = item.body;
+      if (item.state === "returning") {
+        item.timer += dt;
+        const s = Math.min(1, item.timer / RETURN_TIME);
+        const e = s * s * (3 - 2 * s);
+        _v.lerpVectors(item.from, item.home, e);
+        _v.y += Math.sin(Math.PI * s) * 1.2;
+        _q.slerpQuaternions(item.fromQuat, _qId, e);
+        item.mesh.position.copy(_v);
+        item.mesh.quaternion.copy(_q);
+        b.position.set(_v.x, _v.y, _v.z);
+        b.velocity.setZero();
+        b.angularVelocity.setZero();
+        if (s >= 1) {
+          this.reset(item);
+          onReturned(item);
+        }
+        continue;
+      }
       if (item.state === "resting" && b.position.y < item.home.y - 0.3) {
         item.state = "falling";
         item.timer = 0;

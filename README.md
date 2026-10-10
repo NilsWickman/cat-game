@@ -10,6 +10,7 @@ Ett mysigt kattrum i 3D för mobilen. Klappa katterna, lek med laserpekaren, se 
 - **Tryck på en katt:** den rullar över på rygg med tassarna i luften. Klappa magen, men peta för många gånger och den fångar handen.
 - **Laserpekare:** håll fingret på golvet. Katterna smyger, vickar på rumpan och kastar sig.
 - **Knuffa saker:** tryck eller svep på saker på bordet, hyllan eller garnbollen.
+- **Ställa tillbaka:** tryck på något som ligger på golvet så flyger det tillbaka. Någon katt ser det direkt och slår ner det igen.
 - **Kamera:** dra i bakgrunden för att vrida rummet, nyp för att zooma.
 - **Butik:** uppgraderingar och möbler som ger passiv inkomst och nya beteenden.
 - **Katter:** adoptera upp till fem katter och ändra namn, päls och ögonfärg.

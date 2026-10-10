@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { canvasTexture } from "./toon";
 
-export type FxKind = "heart" | "z" | "star" | "dust";
+export type FxKind = "heart" | "z" | "star" | "dust" | "alert";
 
 interface Particle {
   sprite: THREE.Sprite;
@@ -25,6 +25,16 @@ function heartPath(ctx: CanvasRenderingContext2D, s: number) {
 
 function makeTextures(): Record<FxKind, THREE.Texture> {
   return {
+    alert: canvasTexture(64, 64, (ctx, s) => {
+      ctx.font = "900 54px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = "#fff";
+      ctx.strokeText("!", s / 2, s / 2);
+      ctx.fillStyle = "#ff5c3a";
+      ctx.fillText("!", s / 2, s / 2);
+    }),
     heart: canvasTexture(64, 64, (ctx, s) => {
       heartPath(ctx, s);
       ctx.fillStyle = "#ff5c8a";
@@ -69,11 +79,12 @@ export class Fx {
   private pool: THREE.Sprite[] = [];
   private textures = makeTextures();
 
-  emit(kind: FxKind, pos: THREE.Vector3, count = 1) {
+  emit(kind: FxKind, pos: THREE.Vector3, count = 1, color = "#ffffff") {
     for (let i = 0; i < count; i++) {
       const sprite = this.pool.pop() ?? new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
       sprite.material.map = this.textures[kind];
       sprite.material.opacity = 1;
+      sprite.material.color.set(color);
       sprite.position.copy(pos);
       sprite.visible = true;
       this.group.add(sprite);
@@ -96,6 +107,11 @@ export class Fx {
           p.max = 0.7;
           p.size = 0.2 + Math.random() * 0.15;
           p.gravity = 7;
+          break;
+        case "alert":
+          p.vel.set(0, 0.6, 0);
+          p.max = 1.1;
+          p.size = 0.38;
           break;
         case "dust":
           p.vel.set(r() * 2.5, 0.3 + Math.random() * 0.6, r() * 2.5);
