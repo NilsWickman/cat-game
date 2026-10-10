@@ -1,4 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2563eb"/>
-  <text x="32" y="32" dy="0.35em" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="26" font-weight="600" fill="#ffffff">CG</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#ffe9d6"/>
+      <stop offset="1" stop-color="#f4a99a"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g stroke="#3b2a2a" stroke-width="14" stroke-linejoin="round">
+    <path d="M118 236 L140 96 L232 170 Z" fill="#e8913a"/>
+    <path d="M394 236 L372 96 L280 170 Z" fill="#e8913a"/>
+    <ellipse cx="256" cy="290" rx="168" ry="146" fill="#e8913a"/>
+  </g>
+  <path d="M150 140 L160 120 L205 160 Z" fill="#f2a7b2"/>
+  <path d="M362 140 L352 120 L307 160 Z" fill="#f2a7b2"/>
+  <g stroke="#b5642a" stroke-width="16" stroke-linecap="round" fill="none">
+    <path d="M232 160 L238 205"/><path d="M256 156 L256 205"/><path d="M280 160 L274 205"/>
+  </g>
+  <ellipse cx="256" cy="345" rx="78" ry="58" fill="#f8d7b0"/>
+  <g fill="#8cc63f" stroke="#3b2a2a" stroke-width="10">
+    <ellipse cx="190" cy="282" rx="32" ry="36"/>
+    <ellipse cx="322" cy="282" rx="32" ry="36"/>
+  </g>
+  <ellipse cx="190" cy="284" rx="10" ry="27" fill="#1d1616"/>
+  <ellipse cx="322" cy="284" rx="10" ry="27" fill="#1d1616"/>
+  <circle cx="200" cy="268" r="8" fill="#fff"/>
+  <circle cx="332" cy="268" r="8" fill="#fff"/>
+  <path d="M240 322 Q256 312 272 322 Q256 340 240 322 Z" fill="#e27d90" stroke="#3b2a2a" stroke-width="6"/>
+  <path d="M256 336 Q256 356 236 360 M256 336 Q256 356 276 360" stroke="#3b2a2a" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <path d="M352 120 C 380 60, 440 80, 430 40" stroke="#ff5c8a" stroke-width="0" fill="none"/>
+  <path d="M420 92 c -14 -22 -48 -10 -40 14 c 6 18 40 34 40 34 c 0 0 34 -16 40 -34 c 8 -24 -26 -36 -40 -14 z" fill="#ff5c8a" stroke="#fff" stroke-width="8"/>
 </svg>

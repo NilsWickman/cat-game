@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7c6b0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kattrummet" />
+    <meta name="description" content="Ett mysigt kattrum i 3D. Klappa, lek med laserpekaren och inred." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>Kattrummet</title>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <div id="hud">
+      <header class="topbar">
+        <div class="hearts"><span class="heart">❤</span><span id="hearts">0</span></div>
+        <div id="rate">+0 ❤/s</div>
+        <div id="combo" class="combo hidden"></div>
+      </header>
+      <div id="toasts"><div id="hint" class="hint hidden"></div></div>
+      <nav class="bottombar">
+        <button data-panel="shop"><span class="ico">🛒</span>Butik</button>
+        <button data-panel="cats"><span class="ico">🐱</span>Katter</button>
+        <button id="photo-btn"><span class="ico">📷</span>Foto</button>
+        <button data-panel="settings"><span class="ico">⚙️</span>Mer</button>
+      </nav>
+    </div>
+
+    <section id="sheet" class="sheet hidden">
+      <div class="sheet-head">
+        <h2 id="sheet-title"></h2>
+        <button id="sheet-close" aria-label="Stäng">✕</button>
+      </div>
+      <div id="sheet-body"></div>
+    </section>
+
+    <div id="photo" class="photo hidden">
+      <button id="photo-close" class="photo-x" aria-label="Avsluta fotoläge">✕</button>
+      <p class="photo-tip">Vrid och zooma, tryck sedan på knappen</p>
+      <button id="shutter" aria-label="Ta foto"></button>
+      <div id="photo-result" class="hidden">
+        <img id="photo-img" alt="Foto från Kattrummet" />
+        <div class="row">
+          <button id="photo-share">Dela / spara</button>
+          <button id="photo-back">Tillbaka</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="floats"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

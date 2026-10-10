@@ -1,0 +1,18 @@
+{
+  "name": "Kattrummet",
+  "short_name": "Kattrummet",
+  "description": "Ett mysigt kattrum i 3D. Klappa, lek med laserpekaren och inred.",
+  "lang": "sv",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7c6b0",
+  "theme_color": "#f7c6b0",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
